@@ -1,0 +1,61 @@
+package com.cmz.executor;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.cmz.cache.CacheKey;
+
+/**
+ * @author chen.mz
+ * @email 1034667543@qq.com
+ * @create 2019年10月9日 上午9:44:37
+ * @description 带缓存功能的执行器,用于装饰基本执行器
+ */
+public class CachingExecutor implements Executor {
+
+	private Executor delegate;
+
+	private static final Map<Integer, Object> cache = new HashMap<>();
+
+	public CachingExecutor(Executor delegate) {
+		this.delegate = delegate;
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public <T> T query(String statement, Object[] parameter, Class<T> pojo) {
+		// 计算CacheKey
+		CacheKey cacheKey = new CacheKey();
+		cacheKey.update(statement);
+		cacheKey.update(joinStr(parameter));
+		if (cache.containsKey(cacheKey.getCode())) {
+			// 命中缓存
+			System.out.println("【命中缓存】");
+			return (T) cache.get(cacheKey.getCode());
+		} else {
+			// 没有命中缓存，调用被装饰的SimpleExecutor从数据库查询
+			Object obj = delegate.query(statement, parameter, pojo);
+			cache.put(cacheKey.getCode(), obj);
+			return (T) obj;
+		}
+	}
+
+	/**
+	 * 为了命中缓存，把Object[]转换成逗号拼接的字符串，因为对象的HashCode都不一样
+	 * 
+	 * @param objs
+	 * @return
+	 */
+	public String joinStr(Object[] objs) {
+		if(objs == null || objs.length == 0) {
+			return null;
+		}
+		StringBuffer sb = new StringBuffer();
+		for(Object obj : objs) {
+			sb.append(obj.toString()).append(",");
+		}
+		String temp = sb.toString();
+		return temp.substring(0, temp.length() - 1);
+	}
+
+}
